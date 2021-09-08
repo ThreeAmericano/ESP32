@@ -16,6 +16,25 @@ volatile boolean gasValveStatus = false;
 boolean gasStatusFlag = false;
 volatile unsigned char gasCnt = 0;
 
+//WS2813
+#define LIGHT_GPIO 32
+#define LIGHT_NUM  30
+unsigned char lightBrightness = 100;
+unsigned char curLightColor = 0;
+const unsigned char lightColor[8][3] = {
+  {200,0,0},
+  {0,0,200},
+  {0,200,0},
+  {227,227,59},
+  {103,58,183},
+  {200,87,34},
+  {0,169,244},
+  {200,200,200}
+};
+
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(LIGHT_NUM,LIGHT_GPIO, NEO_GRB + NEO_KHZ800);
+
+
 // Firebase
 // Your Firebase Project Web API Key
 #define API_KEY "PPUQ6zcZBZgoOr1FsRB6xceoNL8M39nqad5NRtBl"
@@ -66,6 +85,26 @@ void callback(char* topic, byte* payload, unsigned int length) {
             ledcWrite(AIRCON_PWM_CHANNEL, (windPower*26));
         }
 
+        if(applianceStatus[2] == '0'){
+          pixels.clear(); // led 상태 초기화 = 모든 LED OFF
+          pixels.show();
+        }
+        
+        else if(applianceStatus[2] == '1') {
+          pixels.clear(); // led 상태 초기화 = 모든 LED OFF
+          lightBrightness = 25 * (applianceStatus[3] - '0');
+          pixels.setBrightness(lightBrightness);
+          curLightColor = applianceStatus[4]- '0';
+          Serial.println(curLightColor);
+          for(int j=0; j<LIGHT_NUM; j++) {
+            pixels.setPixelColor(j, pixels.Color(lightColor[curLightColor][0],lightColor[curLightColor][1],lightColor[curLightColor][2]));
+            
+            pixels.show();
+            delay(5);
+          }
+          Serial.println(lightColor[curLightColor][0]);
+        }
+
         if(applianceStatus[7] == '0') digitalWrite(GAS_LED, LOW);
         else digitalWrite(GAS_LED, HIGH);
 
@@ -96,16 +135,16 @@ float humidity = 75;
 float temperature = 24.5;
 
 // 타이머
-volatile char timerInterruptCnt = 0;
-volatile char applianceTimerCnt = 0;
+volatile unsigned int timerInterruptCnt = 0;
+//volatile unsigned int applianceTimerCnt = 0;
 hw_timer_t *timer = NULL;
 #define TIMER_COUNT 100000
 
 // 타이머 인터럽트 서비스 루틴
 void IRAM_ATTR onTimer() {
   // 타이머 카운트 변수 오버플로 방지
-  if (timerInterruptCnt < 0xFF) timerInterruptCnt++;
-//  if (applianceTimerCnt < 0xFF) applianceTimerCnt++;
+  if (timerInterruptCnt < 0xFFFF) timerInterruptCnt++;
+  //if (applianceTimerCnt < 0xFFFF) applianceTimerCnt++;
   if (!(digitalRead(GAS_VALVE))){
     if (gasCnt < 0xFF) gasCnt++;
   }else gasCnt = 0;
@@ -147,9 +186,9 @@ void chk_interrupt(){
     
     //}
     
-    if (timerInterruptCnt >= 300) {
+    if (timerInterruptCnt >= 600) {
       Serial.print("Firebase Status : ");
-      Serial.println(Firebase.ready());
+      Serial.println(Firebase.ready( ));
       timerInterruptCnt = 0;
       
       //습도 측정
@@ -224,6 +263,9 @@ void setup() {
   //ledcAttachPin(GPIO, ch) : GPIO : GPIO Number, ch : PWM Channel
   ledcAttachPin(AIRCON_GPIO, AIRCON_PWM_CHANNEL);
   ledcWrite(AIRCON_PWM_CHANNEL, AIRCON_DUTY);
+
+  pixels.begin();
+  pixels.show();
   
   dht.begin();
   interrupt_init();
