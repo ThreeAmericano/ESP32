@@ -113,7 +113,7 @@ PubSubClient client(espClient);
 
 const char* ssid = "park";
 const char* password = "01098964807";
-const char* mqtt_server = "211.179.42.130"; 
+const char* mqtt_server = "#.#.#.#"; 
 const char* mqtt_user = "rabbit";
 const char* mqtt_pass= "MQ321";
 
